@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SimplyDoors">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<meta name="description" content="Professional Door Measurement Tool for SimplyDoors">
+<title>SimplyDoors Door Measure</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+    /* =========================================
+       1. BRANDING & VARIABLES
+       ========================================= */
+    :root {
+        color-scheme: light; /* Force Light Mode */
+        --brand-green: #7bc043;
+        --brand-dark: #2c3e50;
+        --brand-bg: #f4f7f6;
+        --brand-white: #ffffff;
+        --ui-blue: #007bff;
+        --ui-danger: #dc3545;
+        --shadow-card: 0 4px 20px rgba(0,0,0,0.06);
+        --shadow-header: 0 2px 15px rgba(0,0,0,0.05);
+        --radius: 12px;
+    }
+
+    /* =========================================
+       2. GLOBAL RESET & LAYOUT
+       ========================================= */
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+        background-color: var(--brand-bg) !important; /* Force color override */
+        margin: 0; 
+        padding: 0; 
+        padding-bottom: 160px; /* Space for floating menu */
+        color: #333;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .main-wrapper { padding: 15px; max-width: 850px; margin: 0 auto; }
+    
+    .container { 
+        background: var(--brand-white); 
+        border-radius: var(--radius); 
+        box-shadow: var(--shadow-card); 
+        overflow: hidden;
+        min-height: 80vh;
+    }
+
+    /* =========================================
+       3. HEADER COMPONENT
+       ========================================= */
+    .app-header {
+        background: var(--brand-white);
+        padding: 20px;
+        text-align: center;
+        box-shadow: var(--shadow-header);
+        border-bottom: 4px solid var(--brand-green);
+        position: sticky;
+        top: 0;
+        z-index: 900;
+        transition: transform 0.3s ease;
+    }
+
+    .logo-container img { height: 55px; width: auto; display: inline-block; }
+    
+    /* Fallback Logo Text */
+    .logo-text {
+        font-size: 28px; font-weight: 800; color: var(--brand-dark);
+        display: none; letter-spacing: -0.5px; line-height: 1;
+    }
+    .logo-text span { color: var(--brand-green); }
+
+    .app-subtitle {
+        font-size: 11px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 2px; color: #999; margin-top: 6px;
+    }
+
+    /* Save Indicator Toast */
+    .save-indicator {
+        position: fixed; top: 20px; right: 20px;
+        font-size: 12px; font-weight: 700;
+        background: var(--brand-green); color: white;
+        padding: 8px 16px; border-radius: 30px;
+        opacity: 0; transition: opacity 0.3s ease-in-out;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        pointer-events: none; z-index: 1000;
+    }
+
+    /* =========================================
+       4. FORM ELEMENTS
+       ========================================= */
+    .section { padding: 25px 20px; border-bottom: 1px solid #f0f0f0; }
+    .row { display: flex; gap: 15px; align-items: flex-end; }
+    .col { flex: 1; min-width: 0; } /* min-width prevents flex overflow */
+
+    label { 
+        display: block; margin-top: 18px; margin-bottom: 6px;
+        font-weight: 600; font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    
+    /* Inputs */
+    input:not([type="checkbox"]), select, textarea { 
+        width: 100%; padding: 14px;
+        border: 1px solid #e2e8f0; border-radius: 8px;
+        font-size: 16px; background: #fff;
+        color: #2d3748;
+        -webkit-appearance: none; appearance: none; 
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    input:focus, select:focus, textarea:focus { 
+        border-color: var(--brand-green); 
+        outline: none; background: #f9fffbe0; 
+        box-shadow: 0 0 0 3px rgba(123, 192, 67, 0.15);
+    }
+
+    /* Select Placeholder Logic */
+    select:invalid, select option[value=""] { color: var(--ui-blue); font-weight: 600; }
+    select:not(:invalid) { color: #2d3748; font-weight: 400; }
+
+    textarea { resize: vertical; min-height: 80px; line-height: 1.4; }
+
+    /* Unit Label (e.g. "Width") */
+    .sub-label { 
+        font-size: 10px; font-weight: 700; text-transform: uppercase; 
+        color: #a0aec0; margin-bottom: 4px; display: block; 
+    }
+
+    /* =========================================
+       5. CUSTOM TOGGLE & CHECKBOXES
+       ========================================= */
+    .toggle-wrapper { position: relative; width: 100%; }
+    .custom-input-group { display: flex; gap: 8px; align-items: center; }
+    
+    .undo-btn {
+        background: #edf2f7; color: #718096;
+        border: none; width: 46px; height: 48px;
+        border-radius: 8px; font-size: 22px; line-height: 1;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; transition: background 0.2s;
+    }
+    .undo-btn:active { background: #cbd5e0; }
+
+    /* Checkboxes */
+    .labor-options {
+        background-color: #f7fafc; padding: 15px;
+        border-radius: 10px; border: 1px solid #edf2f7;
+        margin-top: 5px;
+    }
+    .labor-row { display: flex; align-items: center; margin-top: 12px; }
+    .labor-row:first-child { margin-top: 0; }
+    
+    .labor-row label { 
+        margin: 0 0 0 12px; font-size: 14px; font-weight: 500; 
+        color: #2d3748; cursor: pointer; text-transform: none; letter-spacing: 0;
+    }
+    
+    input[type="checkbox"] {
+        -webkit-appearance: checkbox !important; appearance: checkbox !important;
+        display: inline-block; width: 24px; height: 24px; margin: 0;
+        accent-color: var(--brand-green); cursor: pointer; flex-shrink: 0;
+    }
+
+    /* =========================================
+       6. PHOTO COMPONENT
+       ========================================= */
+    .photo-grid { display: flex; gap: 12px; margin-top: 10px; }
+    .photo-box {
+        flex: 1; height: 110px;
+        border: 2px dashed #cbd5e0; border-radius: 10px;
+        background-color: #f7fafc;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; position: relative; overflow: hidden;
+        transition: all 0.2s;
+    }
+    .photo-box.has-image { border: 2px solid var(--brand-green); background-color: #fff; }
+    .photo-box input[type="file"] { display: none; }
+    .photo-placeholder { text-align: center; font-size: 11px; font-weight: 600; color: #718096; pointer-events: none; }
+    .photo-preview { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .photo-spinner { 
+        display: none; border: 3px solid #f3f3f3; border-top: 3px solid var(--brand-green); 
+        border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; 
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* =========================================
+       7. ACTION BAR (FLOATING)
+       ========================================= */
+    .btn-group { 
+        padding: 15px 20px; 
+        background: rgba(255,255,255,0.95);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        position: fixed; bottom: 0; left: 0; right: 0; 
+        border-top: 1px solid #e2e8f0; 
+        box-shadow: 0 -4px 25px rgba(0,0,0,0.1); 
+        display: flex; flex-wrap: wrap; gap: 10px;
+        z-index: 999;
+        padding-bottom: calc(15px + env(safe-area-inset-bottom));
+    }
+    
+    button.action-btn { 
+        flex: 1; padding: 16px; border: none; border-radius: 10px; 
+        font-size: 15px; font-weight: 700; cursor: pointer; 
+        color: white; text-align: center; min-width: 100px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15); transition: transform 0.1s;
+    }
+    button.action-btn:active { transform: scale(0.98); }
+    
+    .btn-add { background-color: var(--brand-green); } 
+    .btn-dup { background-color: #6f42c1; } 
+    .btn-print { background-color: var(--ui-blue); } 
+    .btn-reset { 
+        background-color: var(--ui-danger); color: white;
+        flex-basis: 100%; margin-top: 5px; opacity: 0.9; font-size: 13px; padding: 12px;
+    }
+
+    /* =========================================
+       8. DOOR CARD
+       ========================================= */
+    .window-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-left: 6px solid var(--brand-green);
+        border-radius: 12px; padding: 25px;
+        margin-bottom: 30px; position: relative;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+    }
+    .window-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .window-number { 
+        background: var(--brand-dark); color: white; 
+        padding: 6px 14px; border-radius: 20px; 
+        font-size: 13px; font-weight: 700; letter-spacing: 0.5px;
+    }
+    .btn-delete { 
+        background: #fff1f2; color: #e53e3e; 
+        border: none; width: 36px; height: 36px; border-radius: 50%; 
+        font-weight: bold; font-size: 20px; cursor: pointer; 
+        display: flex; align-items: center; justify-content: center; 
+    }
+
+    /* PDF Branding (Hidden on screen) */
+    .pdf-brand { display: none; } 
+
+    /* =========================================
+       9. PRINTING MODE (PDF)
+       ========================================= */
+    .printing-mode body { background: white; padding: 0; }
+    .printing-mode .main-wrapper { padding: 0; max-width: 100%; }
+    .printing-mode .container { box-shadow: none; border: none; border-radius: 0; }
+    .printing-mode .btn-group, .printing-mode .btn-delete, .printing-mode .save-indicator, .printing-mode .undo-btn, .printing-mode .app-header { display: none !important; }
+
+    /* PDF Cover Page */
+    .printing-mode .job-cover-page {
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        height: 95vh; page-break-after: always; break-after: page;
+    }
+    .printing-mode .cover-header { margin-bottom: 50px; text-align: center; }
+    .printing-mode .cover-header h1 { font-size: 36px; color: var(--brand-dark); margin-bottom: 10px; }
+    .printing-mode .cover-header p { font-size: 16px; color: #666; text-transform: uppercase; letter-spacing: 3px; }
+    .printing-mode .section { border: none; width: 100%; max-width: 650px; }
+    
+    /* PDF Door Page */
+    .printing-mode .window-card {
+        box-shadow: none; border: 2px solid #333; margin: 0; padding: 40px; 
+        min-height: 95vh; page-break-before: always; break-before: page;
+        display: flex; flex-direction: column; justify-content: flex-start;
+    }
+
+    /* PDF Typography Fixes */
+    .printing-mode .pdf-brand { 
+        display: block; text-align: right; color: #aaa; font-size: 10px; 
+        text-transform: uppercase; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px;
+    }
+    .printing-mode label { margin-top: 20px; font-size: 11px; color: #666; }
+    .printing-mode input, .printing-mode select {
+        border: none; border-bottom: 1px solid #000; border-radius: 0; padding: 4px 0; 
+        font-weight: 700; font-size: 14px; background: transparent; color: #000;
+    }
+    /* Ensure toggled inputs show up */
+    .printing-mode .custom-input-group input { display: block !important; }
+    .printing-mode textarea { border: 1px solid #ddd; padding: 10px; font-size: 12px; margin-top: 5px; }
+    
+    /* PDF Photos */
+    .printing-mode .photo-grid { margin-top: 20px; justify-content: space-between; }
+    .printing-mode .photo-box { border: 1px solid #ddd; flex: 0 0 32%; height: 200px; background: #fff; }
+    .printing-mode .photo-box:not(.has-image) { opacity: 0.2; border: 1px dashed #ccc; }
+
+</style>
+</head>
+<body>
+
+<header class="app-header">
+    <div class="logo-container">
+        <img src="logo.png" alt="SimplyDoors" onerror="this.style.display='none'; document.querySelector('.logo-text').style.display='block';">
+        <div class="logo-text">Simply<span>Doors</span></div>
+    </div>
+    <div class="app-subtitle">Door Measure App</div>
+</header>
+
+<div class="save-indicator" id="saveMsg">Saved</div>
+
+<div class="main-wrapper">
+    <div class="container" id="pdf-content">
+        
+        <div class="job-cover-page">
+            <div class="cover-header">
+                <h1>SimplyDoors</h1>
+                <p>Door Measure Sheet</p>
+            </div>
+
+            <div class="section">
+                <label>Customer Name <span style="color:red">*</span></label>
+                <input type="text" class="save-me" placeholder="Enter Name (Required)" name="customer_name" id="cust_name" autocomplete="off">
+                
+                <div class="row">
+                    <div class="col">
+                        <label>PO #</label>
+                        <input type="text" class="save-me" name="po_number" id="po_num" autocomplete="off">
+                    </div>
+                    <div class="col">
+                        <label>Date</label>
+                        <input type="date" class="save-me" id="dateField" name="measure_date">
+                    </div>
+                </div>
+                
+                <label>Measure Tech</label>
+                <select class="save-me" id="techSelect" name="measure_tech" required>
+                    <option value="" disabled selected>Select Tech...</option>
+                    <option value="Adem Atis">Adem Atis</option>
+                    <option value="John Suttin">John Suttin</option>
+                    <option value="Steven Chandler">Steven Chandler</option>
+                    <option value="Isaiah Stratton">Isaiah Stratton</option>
+                    <option value="Paz Galambos">Paz Galambos</option>
+                    <option value="Alan Lloyd">Alan Lloyd</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="windows-container"></div>
+    </div>
+</div>
+
+<div class="btn-group">
+    <button type="button" class="action-btn btn-add" onclick="addDoor()">+ New Door</button>
+    <button type="button" class="action-btn btn-dup" onclick="duplicateLast()">+ Copy Last</button>
+    <button type="button" class="action-btn btn-print" id="pdfBtn" onclick="downloadPDF()">Save PDF</button>
+    <button type="button" class="action-btn btn-reset" onclick="startNewJob()">Start New Job</button>
+</div>
+
+<script>
+    // --- CONFIGURATION ---
+    const container = document.getElementById('windows-container');
+    const saveMsg = document.getElementById('saveMsg');
+    const STORAGE_KEY = 'SimplyDoors_Pro_v14'; 
+    let saveTimeout;
+
+    // --- DROPDOWN DATA ---
+    const optsConfig = ['Single', 'Double', 'Sgl w/ 1 SL', 'Sgl w/ 2 SL'];
+    const optsHanding = ['Left Hand Inswing', 'Right Hand Inswing', 'Left Hand Outswing', 'Right Hand Outswing', 'Slider'];
+    const optsJamb = ['4 9/16', '6 9/16', '5 1/4'];
+    const optsBore = ['Single Bore', 'Double Bore', 'Mortise', 'None'];
+    const optsExt = ['Brickmould (2-inch)', '1x4 Trim', '1x6 Trim', 'No Trim (Stucco Return)', 'Existing to Remain'];
+    const optsInt = ['2 1/4 Casing', '3 1/4 Casing', '1x4 Trim', '1x6 Trim', 'No Trim (Drywall Return)', 'Existing to Remain'];
+
+    // --- INITIALIZATION ---
+    window.onload = function() { loadData(); };
+
+    // --- UI RENDER HELPER: TOGGLE FIELD ---
+    function renderToggleField(label, val, options) {
+        const isCustom = val && !options.includes(val) && val !== '';
+        
+        const selStyle = isCustom ? 'display:none' : 'display:block';
+        const selClass = isCustom ? '' : 'save-me-dynamic'; 
+        
+        const inpStyle = isCustom ? 'display:flex' : 'display:none';
+        const inpClass = isCustom ? 'save-me-dynamic' : ''; 
+        
+        let optsHtml = '<option value="" disabled selected>Select...</option>';
+        options.forEach(opt => {
+            const selected = (opt === val) ? 'selected' : '';
+            optsHtml += `<option ${selected}>${opt}</option>`;
+        });
+        optsHtml += `<option value="Custom">Custom (Type...)</option>`;
+
+        return `
+        <div class="toggle-field-wrapper">
+            <label>${label}</label>
+            <div class="toggle-wrapper">
+                <select class="${selClass}" style="${selStyle}" onchange="checkCustom(this)" required>
+                    ${optsHtml}
+                </select>
+                <div class="custom-input-group" style="${inpStyle}">
+                    <input type="text" class="${inpClass}" value="${isCustom ? val : ''}" placeholder="Type value..." oninput="triggerSave()" autocomplete="off">
+                    <button type="button" class="undo-btn" onclick="resetToggle(this)">×</button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // --- LOGIC: TOGGLE CUSTOM INPUT ---
+    function checkCustom(select) {
+        if(select.value === 'Custom') {
+            const wrapper = select.parentElement;
+            const inputGroup = wrapper.querySelector('.custom-input-group');
+            const input = inputGroup.querySelector('input');
+            
+            select.style.display = 'none';
+            inputGroup.style.display = 'flex';
+            select.classList.remove('save-me-dynamic');
+            input.classList.add('save-me-dynamic');
+            input.focus();
+        }
+        triggerSave();
+    }
+
+    function resetToggle(btn) {
+        const wrapper = btn.closest('.toggle-wrapper');
+        const select = wrapper.querySelector('select');
+        const inputGroup = wrapper.querySelector('.custom-input-group');
+        const input = inputGroup.querySelector('input');
+        
+        input.value = '';
+        select.value = ''; 
+        inputGroup.style.display = 'none';
+        select.style.display = 'block';
+        input.classList.remove('save-me-dynamic');
+        select.classList.add('save-me-dynamic');
+        triggerSave();
+    }
+
+    // --- CORE: ADD DOOR ---
+    function addDoor(data = null) {
+        const currentCount = container.querySelectorAll('.window-card').length + 1;
+        
+        const vals = data || {
+            loc: '', config: '', handing: '',
+            dim_type: '', w: '', h: '', 
+            jamb: '', bore: '', 
+            ext_trim: '', int_trim: '', 
+            l_tile: false, l_wood: false, l_cem: false, l_wsupp: false, l_custom: '', 
+            notes: '',
+            p1: null, p2: null, p3: null
+        };
+
+        const cardId = 'card_' + Date.now() + Math.floor(Math.random() * 1000);
+
+        const html = `
+        <div class="window-card" id="${cardId}">
+            <div class="pdf-brand">SimplyDoors Door Measure</div>
+            <div class="window-header">
+                <div class="window-number">Unit #<span class="count-display">${currentCount}</span></div>
+                <button class="btn-delete" onclick="deleteWindow('${cardId}')">×</button>
+            </div>
+            
+            <label>Location Name</label>
+            <input type="text" class="loc-name save-me-dynamic" placeholder="e.g. Front Entry" value="${vals.loc}" autocomplete="off">
+            
+            <div class="row">
+                <div class="col">${renderToggleField('Config', vals.config, optsConfig)}</div>
+                <div class="col">${renderToggleField('Handing', vals.handing, optsHanding)}</div>
+            </div>
+
+            <label>Dimensions</label>
+            <div class="row">
+                <div class="col" style="flex:1.4">
+                    <span class="sub-label">Type</span>
+                    <select class="save-me-dynamic" onchange="triggerSave()" required>
+                        <option value="" disabled ${vals.dim_type === '' ? 'selected' : ''}>Select...</option>
+                        <option ${vals.dim_type === 'Unit Size' ? 'selected' : ''}>Unit Size</option>
+                        <option ${vals.dim_type === 'Rough Opening' ? 'selected' : ''}>Rough Opening</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <span class="sub-label">Width</span>
+                    <input type="number" class="save-me-dynamic" inputmode="decimal" placeholder='0.0"' value="${vals.w}" autocomplete="off">
+                </div>
+                <div class="col">
+                    <span class="sub-label">Height</span>
+                    <input type="number" class="save-me-dynamic" inputmode="decimal" placeholder='0.0"' value="${vals.h}" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">${renderToggleField('Jamb Depth', vals.jamb, optsJamb)}</div>
+                <div class="col">${renderToggleField('Bore / Lock', vals.bore, optsBore)}</div>
+            </div>
+
+            <div class="row">
+                <div class="col">${renderToggleField('Exterior Trim', vals.ext_trim, optsExt)}</div>
+                <div class="col">${renderToggleField('Interior Trim', vals.int_trim, optsInt)}</div>
+            </div>
+            
+            <label>Installation Labor</label>
+            <div class="labor-options">
+                <div class="labor-row">
+                    <input type="checkbox" class="save-me-dynamic" ${vals.l_tile ? 'checked' : ''}>
+                    <label>Cut back Tile</label>
+                </div>
+                <div class="labor-row">
+                    <input type="checkbox" class="save-me-dynamic" ${vals.l_wood ? 'checked' : ''}>
+                    <label>Cut back Wood</label>
+                </div>
+                <div class="labor-row">
+                    <input type="checkbox" class="save-me-dynamic" ${vals.l_cem ? 'checked' : ''}>
+                    <label>Cement Sill Support</label>
+                </div>
+                <div class="labor-row">
+                    <input type="checkbox" class="save-me-dynamic" ${vals.l_wsupp ? 'checked' : ''}>
+                    <label>Wood Sill Support</label>
+                </div>
+                <div style="margin-top:12px;">
+                    <span class="sub-label">Custom Labor / Notes</span>
+                    <input type="text" class="save-me-dynamic" placeholder="Type details..." value="${vals.l_custom}" autocomplete="off">
+                </div>
+            </div>
+            
+            <label>Notes</label><textarea class="save-me-dynamic">${vals.notes}</textarea>
+            
+            <label class="photo-label">Photos (Tap box to add)</label>
+            <div class="photo-grid">
+                ${renderPhotoBox(1, vals.p1)}
+                ${renderPhotoBox(2, vals.p2)}
+                ${renderPhotoBox(3, vals.p3)}
+            </div>
+        </div>`;
+        
+        container.insertAdjacentHTML('beforeend', html);
+        
+        // Attach listeners
+        const newCard = document.getElementById(cardId);
+        newCard.querySelectorAll('input, select, textarea').forEach(input => {
+            input.addEventListener('input', triggerSave);
+            input.addEventListener('change', triggerSave);
+        });
+
+        if (!data) { 
+            setTimeout(() => newCard.scrollIntoView({ behavior: "smooth", block: "center" }), 150); 
+            triggerSave(); 
+        }
+    }
+
+    function renderPhotoBox(num, dataUrl) {
+        const hasImg = dataUrl ? 'has-image' : '';
+        const imgSrc = dataUrl || '';
+        const displayImg = dataUrl ? 'block' : 'none';
+        const displayPlace = dataUrl ? 'none' : 'block';
+        
+        return `
+        <div class="photo-box ${hasImg}" onclick="triggerFile(this)">
+            <div class="photo-placeholder" style="display:${displayPlace}">📷<br>Photo ${num}</div>
+            <div class="photo-spinner"></div>
+            <img class="photo-preview" src="${imgSrc}" style="display:${displayImg}">
+            <input type="file" accept="image/*" capture="environment" onchange="processImage(this)">
+        </div>`;
+    }
+
+    // --- ACTIONS ---
+    function deleteWindow(id) {
+        if(confirm('Delete this unit?')) {
+            document.getElementById(id).remove();
+            renumberWindows();
+            triggerSave();
+        }
+    }
+
+    function renumberWindows() {
+        const cards = document.querySelectorAll('.window-card');
+        cards.forEach((card, index) => {
+            card.querySelector('.count-display').innerText = index + 1;
+        });
+    }
+
+    function duplicateLast() {
+        const allCards = document.querySelectorAll('.window-card');
+        if (allCards.length === 0) { addDoor(); return; }
+        const lastCard = allCards[allCards.length - 1];
+        const inputs = lastCard.querySelectorAll('.save-me-dynamic');
+        
+        // Safe data mapping
+        const data = {
+            loc: '', 
+            config: inputs[1].value, 
+            handing: inputs[2].value,
+            dim_type: inputs[3].value,
+            w: inputs[4].value, 
+            h: inputs[5].value, 
+            jamb: inputs[6].value, 
+            bore: inputs[7].value,
+            ext_trim: inputs[8].value,
+            int_trim: inputs[9].value,
+            l_tile: inputs[10].checked, 
+            l_wood: inputs[11].checked, 
+            l_cem: inputs[12].checked, 
+            l_wsupp: inputs[13].checked, 
+            l_custom: inputs[14].value,
+            notes: '',
+            p1: null, p2: null, p3: null 
+        };
+        addDoor(data);
+    }
+
+    // --- SAVING & LOCAL STORAGE ---
+    function triggerSave() {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(performSave, 800); 
+    }
+
+    function performSave() {
+        try {
+            const globalData = { cust: document.getElementById('cust_name').value, po: document.getElementById('po_num').value, date: document.getElementById('dateField').value, tech: document.getElementById('techSelect').value };
+            const windowData = [];
+            document.querySelectorAll('.window-card').forEach(card => {
+                const inputs = card.querySelectorAll('.save-me-dynamic');
+                const imgs = card.querySelectorAll('.photo-preview');
+                // Ensure robust array indexing
+                if(inputs.length >= 15) {
+                    windowData.push({
+                        loc: inputs[0].value, config: inputs[1].value, handing: inputs[2].value,
+                        dim_type: inputs[3].value, w: inputs[4].value, h: inputs[5].value, 
+                        jamb: inputs[6].value, bore: inputs[7].value,
+                        ext_trim: inputs[8].value, int_trim: inputs[9].value,
+                        l_tile: inputs[10].checked, l_wood: inputs[11].checked, 
+                        l_cem: inputs[12].checked, l_wsupp: inputs[13].checked, l_custom: inputs[14].value,
+                        notes: inputs[15].value,
+                        p1: imgs[0].src.startsWith('data:') ? imgs[0].src : null,
+                        p2: imgs[1].src.startsWith('data:') ? imgs[1].src : null,
+                        p3: imgs[2].src.startsWith('data:') ? imgs[2].src : null
+                    });
+                }
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ global: globalData, windows: windowData }));
+            showSaveIndicator();
+        } catch (e) {
+            console.error("Storage Limit Reached");
+        }
+    }
+
+    function showSaveIndicator() {
+        saveMsg.style.opacity = '1';
+        setTimeout(() => saveMsg.style.opacity = '0', 1500);
+    }
+
+    function loadData() {
+        const savedJSON = localStorage.getItem(STORAGE_KEY);
+        if (!savedJSON) { document.getElementById('dateField').valueAsDate = new Date(); addDoor(); return; }
+        
+        try {
+            const data = JSON.parse(savedJSON);
+            document.getElementById('cust_name').value = data.global.cust || '';
+            document.getElementById('po_num').value = data.global.po || '';
+            document.getElementById('dateField').value = data.global.date || '';
+            document.getElementById('techSelect').value = data.global.tech || '';
+            
+            container.innerHTML = ''; 
+            if (data.windows && data.windows.length > 0) {
+                data.windows.forEach(winData => addDoor(winData));
+            } else {
+                addDoor();
+            }
+        } catch (e) {
+            addDoor();
+        }
+    }
+
+    // --- PDF GENERATION ---
+    function downloadPDF() {
+        // Validation: Check Customer Name
+        const custName = document.getElementById('cust_name').value.trim();
+        if(!custName) {
+            alert("Please enter a Customer Name before saving.");
+            document.getElementById('cust_name').focus();
+            return;
+        }
+
+        document.body.classList.add('printing-mode');
+        
+        // Sync values to DOM attributes for html2canvas
+        document.querySelectorAll('textarea, input').forEach(el => {
+            if(el.tagName === 'TEXTAREA') el.innerHTML = el.value;
+            if(el.type === 'checkbox' && el.checked) el.setAttribute('checked', 'checked');
+            if(el.type !== 'checkbox' && el.type !== 'file') el.setAttribute('value', el.value);
+        });
+
+        let filename = "Measure_" + custName.replace(/[^a-z0-9]/gi, '_') + ".pdf";
+        const btn = document.getElementById('pdfBtn');
+        const originalText = btn.innerText;
+        btn.innerText = "Generating...";
+        
+        const element = document.getElementById('pdf-content');
+        
+        const opt = {
+            margin:       [10, 10, 10, 10],
+            filename:     filename,
+            image:        { type: 'jpeg', quality: 0.8 },
+            html2canvas:  { scale: 2, useCORS: true, scrollY: 0, windowWidth: 800 },
+            jsPDF:        { unit: 'pt', format: 'a4', orientation: 'portrait' },
+            pagebreak:    { mode: ['css', 'legacy'] } 
+        };
+
+        html2pdf().set(opt).from(element).save().then(function(){
+            btn.innerText = originalText;
+            document.body.classList.remove('printing-mode');
+        }).catch(function(err) {
+            alert("PDF Error: " + err.message);
+            document.body.classList.remove('printing-mode');
+            btn.innerText = originalText;
+        });
+    }
+
+    function startNewJob() {
+        if(confirm("⚠️ Start New Job?\n\nThis will erase current data.")) {
+            localStorage.removeItem(STORAGE_KEY); 
+            location.reload();
+        }
+    }
+
+    // --- IMAGE HANDLING ---
+    document.querySelectorAll('.save-me').forEach(el => {
+        el.addEventListener('input', triggerSave);
+    });
+
+    function triggerFile(box) { const input = box.querySelector('input[type="file"]'); if (input) input.click(); }
+    
+    function processImage(input) { 
+        const file = input.files[0]; 
+        if (!file) return;
+        
+        const box = input.parentElement;
+        const img = box.querySelector('.photo-preview');
+        const placeholder = box.querySelector('.photo-placeholder');
+        const spinner = box.querySelector('.photo-spinner');
+
+        placeholder.style.display = 'none';
+        spinner.style.display = 'block';
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const tempImg = new Image();
+            tempImg.src = e.target.result;
+            tempImg.onload = function() {
+                // Compress Image to max 800px width
+                const maxWidth = 800; 
+                const scaleSize = maxWidth / tempImg.width;
+                const newWidth = maxWidth;
+                const newHeight = tempImg.height * scaleSize;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(tempImg, 0, 0, newWidth, newHeight);
+
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                
+                img.src = compressedDataUrl;
+                img.style.display = 'block';
+                spinner.style.display = 'none';
+                box.classList.add('has-image');
+                triggerSave();
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+</script>
+
+</body>
+</html>
